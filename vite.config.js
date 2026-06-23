@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readdirSync } from 'node:fs'
@@ -52,6 +52,15 @@ function devApi() {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss(), devApi()],
+export default defineConfig(({ mode }) => {
+  // Expose non-VITE secrets to the dev /api functions. In production these come
+  // from Vercel's environment; locally they come from a .env file.
+  const env = loadEnv(mode, process.cwd(), '')
+  for (const key of ['FIRMS_MAP_KEY', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET']) {
+    if (env[key]) process.env[key] = env[key]
+  }
+
+  return {
+    plugins: [react(), tailwindcss(), devApi()],
+  }
 })

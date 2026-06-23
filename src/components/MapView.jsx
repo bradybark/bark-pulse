@@ -14,6 +14,22 @@ const INITIAL_VIEW = {
 export default function MapView({ liveLayers, enabled, dataById, onFeatureClick }) {
   const [cursor, setCursor] = useState('grab')
 
+  // Register any custom icons (e.g. the rotatable aircraft) once the style is
+  // ready, and re-add them if MapLibre reports the image missing at draw time.
+  const registerImages = useCallback(
+    (map) => liveLayers.forEach((l) => l.registerImages?.(map)),
+    [liveLayers],
+  )
+
+  const handleLoad = useCallback(
+    (e) => {
+      const map = e.target
+      registerImages(map)
+      map.on('styleimagemissing', () => registerImages(map))
+    },
+    [registerImages],
+  )
+
   // Only render layers that are both live and toggled on. Areas are drawn
   // first so point layers (quakes, flights) sit on top of alert polygons.
   const visible = useMemo(
@@ -47,6 +63,7 @@ export default function MapView({ liveLayers, enabled, dataById, onFeatureClick 
       style={{ width: '100%', height: '100%' }}
       interactiveLayerIds={interactiveLayerIds}
       cursor={cursor}
+      onLoad={handleLoad}
       onClick={handleClick}
       onMouseEnter={() => setCursor('pointer')}
       onMouseLeave={() => setCursor('grab')}

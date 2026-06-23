@@ -35,11 +35,14 @@ export function useLiveData(enabled) {
         [layer.id]: { data, loading: false, error: null, updatedAt: Date.now() },
       }))
     } catch (err) {
+      const hadData = !!stateRef.current[layer.id]?.data
       setState((s) => ({
         ...s,
         [layer.id]: { ...s[layer.id], loading: false, error: String(err) },
       }))
-      if (!silent) toast.error(`Couldn't load ${layer.label}`)
+      // Only nag when there's nothing on the map yet; a failed refresh of an
+      // already-populated layer (e.g. a transient OpenSky 429) stays quiet.
+      if (!silent && !hadData) toast.error(`Couldn't load ${layer.label}`)
     }
   }, [])
 

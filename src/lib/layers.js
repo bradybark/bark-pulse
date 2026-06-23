@@ -187,6 +187,28 @@ const ALT_COLOR = [
   11000, '#a78bfa',
 ]
 
+// Build a small plane glyph (nose pointing "north") as ImageData so MapLibre
+// can rotate it per-feature by heading. Drawn once and registered on the map.
+function makeAircraftIcon(size = 40) {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  ctx.translate(size / 2, size / 2)
+  ctx.beginPath()
+  ctx.moveTo(0, -size * 0.42) // nose
+  ctx.lineTo(size * 0.3, size * 0.3) // right tail
+  ctx.lineTo(0, size * 0.14) // tail notch
+  ctx.lineTo(-size * 0.3, size * 0.3) // left tail
+  ctx.closePath()
+  ctx.fillStyle = '#f1f5f9'
+  ctx.strokeStyle = 'rgba(10,10,12,0.9)'
+  ctx.lineWidth = size * 0.045
+  ctx.lineJoin = 'round'
+  ctx.fill()
+  ctx.stroke()
+  return ctx.getImageData(0, 0, size, size)
+}
+
 const flights = {
   id: 'flights',
   kind: 'point',
@@ -196,16 +218,42 @@ const flights = {
   accent: '#a78bfa',
   Icon: Plane,
   endpoint: '/api/flights',
-  refreshMs: 30 * MS.second,
+  refreshMs: 45 * MS.second,
   defaultOn: false, // opt-in: respects OpenSky's anonymous rate limit
+  // Registered on map load so the symbol layer's icon exists before it renders.
+  registerImages(map) {
+    if (!map.hasImage('aircraft')) {
+      map.addImage('aircraft', makeAircraftIcon(), { pixelRatio: 2 })
+    }
+  },
   buildLayers(sourceId) {
-    return glowingPointLayers({
-      sourceId,
-      color: ALT_COLOR,
-      radius: 3,
-      glowRadius: 6.5,
-      glowOpacity: 0.3,
-    })
+    return [
+      {
+        id: `${sourceId}-glow`,
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-color': ALT_COLOR,
+          'circle-radius': 7,
+          'circle-blur': 1,
+          'circle-opacity': 0.28,
+        },
+      },
+      {
+        // `-core` is the clickable layer; a plane icon rotated by heading.
+        id: `${sourceId}-core`,
+        type: 'symbol',
+        source: sourceId,
+        layout: {
+          'icon-image': 'aircraft',
+          'icon-rotate': ['coalesce', ['get', 'heading'], 0],
+          'icon-rotation-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 3, 0.45, 6, 0.85],
+        },
+      },
+    ]
   },
   legend: [
     { color: '#fbbf24', label: 'Low' },
@@ -233,15 +281,72 @@ const flights = {
   },
 }
 
+const CONFIDENCE_LABEL = { l: 'Low', n: 'Nominal', h: 'High' }
+
 const wildfires = {
   id: 'wildfires',
   kind: 'point',
   label: 'Wildfires',
-  blurb: 'NASA FIRMS active fire detections',
+  blurb: 'NASA FIRMS active fire detections, 24h',
   source: 'NASA FIRMS',
-  accent: '#f87171',
+  accent: '#f97316',
   Icon: Flame,
-  comingSoon: true,
+  endpoint: '/api/fires',
+  refreshMs: 10 * MS.minute,
+  defaultOn: false, // requires FIRMS_MAP_KEY
+  buildLayers(sourceId) {
+    // Colour & size by fire radiative power (MW).
+    const color = [
+      'step',
+      ['coalesce', ['get', 'frp'], 0],
+      '#fbbf24',
+      10, '#fb923c',
+      50, '#f97316',
+      100, '#ef4444',
+      300, '#b91c1c',
+    ]
+    const radius = [
+      'interpolate', ['linear'], ['coalesce', ['get', 'frp'], 0],
+      0, 2.5, 50, 6, 200, 11, 500, 17,
+    ]
+    return glowingPointLayers({
+      sourceId,
+      color,
+      radius,
+      glowRadius: ['*', radius, 2.6],
+      glowOpacity: 0.4,
+    })
+  },
+  legend: [
+    { color: '#fbbf24', label: 'Low' },
+    { color: '#f97316', label: 'High' },
+    { color: '#ef4444', label: 'Intense' },
+    { color: '#b91c1c', label: 'Extreme' },
+  ],
+  toDetail(p) {
+    const conf =
+      p.confidence == null
+        ? '—'
+        : CONFIDENCE_LABEL[p.confidence?.toLowerCase()] ||
+          (Number.isFinite(+p.confidence) ? `${p.confidence}%` : p.confidence)
+    const time =
+      p.acq_time && p.acq_time.length === 4
+        ? `${p.acq_time.slice(0, 2)}:${p.acq_time.slice(2)}`
+        : p.acq_time
+    return {
+      accent: this.accent,
+      headline: 'Active Fire Detection',
+      place: p.acq_date ? `Detected ${p.acq_date}${time ? ` at ${time} UTC` : ''}` : 'Active fire',
+      time: p.satellite ? `Satellite ${p.satellite}` : null,
+      stats: [
+        { label: 'Fire power', value: p.frp != null ? `${p.frp} MW` : '—' },
+        { label: 'Confidence', value: conf },
+        { label: 'Brightness', value: p.bright != null ? `${p.bright} K` : '—' },
+        { label: 'Pass', value: p.daynight === 'D' ? 'Daytime' : p.daynight === 'N' ? 'Nighttime' : '—' },
+      ],
+      link: null,
+    }
+  },
 }
 
 export const LAYERS = [earthquakes, weatherAlerts, flights, wildfires]

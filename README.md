@@ -6,18 +6,23 @@ A live, glowing map of what's happening across the United States right now, insp
 
 ## Status
 
-Three live layers wired end-to-end (all keyless):
+Four live layers wired end-to-end:
 
 | Layer | Source | Key needed | Status |
 | --- | --- | --- | --- |
 | 🌐 Earthquakes | USGS GeoJSON feed | No | ✅ Live |
 | ⛈️ Weather Alerts | NWS (weather.gov) | No | ✅ Live |
 | ✈️ Live Flights | OpenSky Network | No (anon, rate-limited) | ✅ Live |
-| 🔥 Wildfires | NASA FIRMS | Free key | 🔜 Roadmap |
+| 🔥 Wildfires | NASA FIRMS | Free key required | ✅ Live |
 
-> Flights are **off by default** and fetched only when toggled on, to respect
-> OpenSky's anonymous rate limit. Set `OPENSKY_USERNAME`/`OPENSKY_PASSWORD`
-> (see `.env.example`) to lift it.
+> **Flights** are off by default and fetched only when toggled on. Aircraft are
+> drawn as plane icons rotated by heading and coloured by altitude. OpenSky's
+> anonymous tier returns frequent 429s — the proxy caches the last good
+> positions so the map stays alive, and `OPENSKY_CLIENT_ID`/`_SECRET`
+> (see `.env.example`) lift the limit.
+>
+> **Wildfires** need a free `FIRMS_MAP_KEY` — without it the layer reports that
+> clearly. Get one in ~30s at <https://firms.modaps.eosdis.nasa.gov/api/>.
 
 ## Stack
 
@@ -56,12 +61,12 @@ src/
 api/
   earthquakes.js           USGS proxy (US-bbox filtered, edge cached)
   alerts.js                NWS active alerts proxy (polygons only, edge cached)
-  flights.js               OpenSky proxy (CONUS bbox, airborne, short cache)
+  flights.js               OpenSky proxy (CONUS, airborne; OAuth + stale cache)
+  fires.js                 NASA FIRMS proxy (CSV->GeoJSON, needs FIRMS_MAP_KEY)
 ```
 
 ## Roadmap
 
-1. NASA FIRMS wildfires (`/api/fires`) — needs `FIRMS_MAP_KEY`.
-2. Rotated aircraft icons + smooth position interpolation between refreshes.
-3. Time scrubber / "past 7 days" window for quakes.
-4. Click-to-zoom + share deep links to a feature.
+1. Smooth position interpolation so flights glide between 45s refreshes.
+2. Time scrubber / "past 7 days" window for quakes.
+3. Click-to-zoom + share deep links to a feature.
