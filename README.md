@@ -53,7 +53,8 @@ the detail modal. **Adding a new data source = adding one object there + one
 ```
 src/
   lib/layers.js            layer registry (the extensible seam)
-  hooks/useLiveData.js     fetch + auto-refresh all live layers
+  hooks/useLiveData.js     fetch + auto-refresh enabled live layers
+  hooks/useDeadReckoning.js  glides animated point layers between refreshes
   components/
     MapView.jsx            MapLibre map + GeoJSON sources/layers
     LayerPanel.jsx         toggles, legend, live counts
@@ -67,6 +68,5 @@ api/
 
 ## Roadmap
 
-1. Smooth position interpolation so flights glide between 45s refreshes.
-2. Time scrubber / "past 7 days" window for quakes.
-3. Click-to-zoom + share deep links to a feature.
+1. Time scrubber / "past 7 days" window for quakes.
+2. Click-to-zoom + share deep links to a feature.

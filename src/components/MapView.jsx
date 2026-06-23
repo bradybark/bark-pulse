@@ -1,6 +1,7 @@
 // src/components/MapView.jsx
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre'
+import { useDeadReckoning } from '../hooks/useDeadReckoning'
 
 // Free, token-less dark vector basemap from CARTO — matches the bark aesthetic.
 const BASEMAP = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
@@ -13,6 +14,7 @@ const INITIAL_VIEW = {
 
 export default function MapView({ liveLayers, enabled, dataById, onFeatureClick }) {
   const [cursor, setCursor] = useState('grab')
+  const mapRef = useRef(null)
 
   // Register any custom icons (e.g. the rotatable aircraft) once the style is
   // ready, and re-add them if MapLibre reports the image missing at draw time.
@@ -24,6 +26,7 @@ export default function MapView({ liveLayers, enabled, dataById, onFeatureClick 
   const handleLoad = useCallback(
     (e) => {
       const map = e.target
+      mapRef.current = map
       registerImages(map)
       map.on('styleimagemissing', () => registerImages(map))
     },
@@ -39,6 +42,20 @@ export default function MapView({ liveLayers, enabled, dataById, onFeatureClick 
         .sort((a, b) => (a.kind === 'area' ? 0 : 1) - (b.kind === 'area' ? 0 : 1)),
     [liveLayers, enabled, dataById],
   )
+
+  // Stable getters so the dead-reckoning animation loop reads live values
+  // without restarting. The loop glides `animated` layers (flights) between
+  // snapshots by projecting each point along its heading/velocity.
+  const visibleRef = useRef(visible)
+  const dataRef = useRef(dataById)
+  useEffect(() => {
+    visibleRef.current = visible
+    dataRef.current = dataById
+  }, [visible, dataById])
+  const getMap = useCallback(() => mapRef.current, [])
+  const getActiveLayers = useCallback(() => visibleRef.current, [])
+  const getDataById = useCallback(() => dataRef.current, [])
+  useDeadReckoning(getMap, getActiveLayers, getDataById)
 
   const interactiveLayerIds = useMemo(
     () => visible.map((l) => `${l.id}-core`),

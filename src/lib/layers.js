@@ -220,6 +220,7 @@ const flights = {
   endpoint: '/api/flights',
   refreshMs: 45 * MS.second,
   defaultOn: false, // opt-in: respects OpenSky's anonymous rate limit
+  animated: true, // dead-reckon positions between refreshes (see useDeadReckoning)
   // Registered on map load so the symbol layer's icon exists before it renders.
   registerImages(map) {
     if (!map.hasImage('aircraft')) {
