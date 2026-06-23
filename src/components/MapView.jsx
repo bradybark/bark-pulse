@@ -14,9 +14,13 @@ const INITIAL_VIEW = {
 export default function MapView({ liveLayers, enabled, dataById, onFeatureClick }) {
   const [cursor, setCursor] = useState('grab')
 
-  // Only render layers that are both live and toggled on.
+  // Only render layers that are both live and toggled on. Areas are drawn
+  // first so point layers (quakes, flights) sit on top of alert polygons.
   const visible = useMemo(
-    () => liveLayers.filter((l) => enabled.has(l.id) && dataById[l.id]?.data),
+    () =>
+      liveLayers
+        .filter((l) => enabled.has(l.id) && dataById[l.id]?.data)
+        .sort((a, b) => (a.kind === 'area' ? 0 : 1) - (b.kind === 'area' ? 0 : 1)),
     [liveLayers, enabled, dataById],
   )
 

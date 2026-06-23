@@ -6,14 +6,18 @@ A live, glowing map of what's happening across the United States right now, insp
 
 ## Status
 
-**MVP** — one live layer wired end-to-end:
+Three live layers wired end-to-end (all keyless):
 
 | Layer | Source | Key needed | Status |
 | --- | --- | --- | --- |
 | 🌐 Earthquakes | USGS GeoJSON feed | No | ✅ Live |
-| ⛈️ Weather Alerts | NWS (weather.gov) | No | 🔜 Roadmap |
+| ⛈️ Weather Alerts | NWS (weather.gov) | No | ✅ Live |
+| ✈️ Live Flights | OpenSky Network | No (anon, rate-limited) | ✅ Live |
 | 🔥 Wildfires | NASA FIRMS | Free key | 🔜 Roadmap |
-| ✈️ Live Flights | OpenSky Network | No (anon) | 🔜 Roadmap |
+
+> Flights are **off by default** and fetched only when toggled on, to respect
+> OpenSky's anonymous rate limit. Set `OPENSKY_USERNAME`/`OPENSKY_PASSWORD`
+> (see `.env.example`) to lift it.
 
 ## Stack
 
@@ -51,11 +55,13 @@ src/
     FeatureDetailModal.jsx bark-ui Modal feature detail
 api/
   earthquakes.js           USGS proxy (US-bbox filtered, edge cached)
+  alerts.js                NWS active alerts proxy (polygons only, edge cached)
+  flights.js               OpenSky proxy (CONUS bbox, airborne, short cache)
 ```
 
 ## Roadmap
 
-1. NWS weather alerts (`/api/alerts`) — polygons, no key.
-2. NASA FIRMS wildfires (`/api/fires`) — needs `FIRMS_MAP_KEY`.
-3. OpenSky flights (`/api/flights`) — animated aircraft.
-4. Time scrubber / "past 7 days" window for quakes.
+1. NASA FIRMS wildfires (`/api/fires`) — needs `FIRMS_MAP_KEY`.
+2. Rotated aircraft icons + smooth position interpolation between refreshes.
+3. Time scrubber / "past 7 days" window for quakes.
+4. Click-to-zoom + share deep links to a feature.

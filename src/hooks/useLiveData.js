@@ -3,18 +3,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { LIVE_LAYERS } from '../lib/layers'
 
+const emptyEntry = () => ({ data: null, loading: false, error: null, updatedAt: null })
+
 /**
- * Fetches every live layer's GeoJSON and keeps it fresh on each layer's
- * refresh interval. Returns a map of layerId -> { data, loading, error,
- * updatedAt } plus a manual refresh().
+ * Fetches GeoJSON for the layers that are currently enabled and keeps each one
+ * fresh on its own refresh interval. Disabled layers are never fetched — which
+ * matters for rate-limited sources like OpenSky. Returns a map of
+ * layerId -> { data, loading, error, updatedAt } plus a manual refresh().
+ *
+ * @param {Set<string>} enabled - ids of layers that should be live
  */
-export function useLiveData() {
+export function useLiveData(enabled) {
   const [state, setState] = useState(() =>
-    Object.fromEntries(
-      LIVE_LAYERS.map((l) => [l.id, { data: null, loading: true, error: null, updatedAt: null }]),
-    ),
+    Object.fromEntries(LIVE_LAYERS.map((l) => [l.id, emptyEntry()])),
   )
   const timers = useRef({})
+  // Read latest state inside effects without making them depend on it.
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   const fetchLayer = useCallback(async (layer, { silent } = {}) => {
     if (!silent) {
@@ -38,8 +44,14 @@ export function useLiveData() {
   }, [])
 
   useEffect(() => {
+    // Reset all timers, then (re)arm only the enabled layers.
+    Object.values(timers.current).forEach(clearInterval)
+    timers.current = {}
+
     LIVE_LAYERS.forEach((layer) => {
-      fetchLayer(layer)
+      if (!enabled.has(layer.id)) return
+      const entry = stateRef.current[layer.id]
+      if (!entry?.data && !entry?.loading) fetchLayer(layer)
       if (layer.refreshMs) {
         timers.current[layer.id] = setInterval(
           () => fetchLayer(layer, { silent: true }),
@@ -47,13 +59,18 @@ export function useLiveData() {
         )
       }
     })
-    const t = timers.current
-    return () => Object.values(t).forEach(clearInterval)
-  }, [fetchLayer])
+
+    return () => {
+      Object.values(timers.current).forEach(clearInterval)
+      timers.current = {}
+    }
+  }, [enabled, fetchLayer])
 
   const refresh = useCallback(() => {
-    LIVE_LAYERS.forEach((layer) => fetchLayer(layer))
-  }, [fetchLayer])
+    LIVE_LAYERS.forEach((layer) => {
+      if (enabled.has(layer.id)) fetchLayer(layer)
+    })
+  }, [enabled, fetchLayer])
 
   return { state, refresh }
 }

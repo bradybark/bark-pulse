@@ -21,11 +21,11 @@ const Brand = () => (
 )
 
 export default function App() {
-  const { state: dataById, refresh } = useLiveData()
-
   const [enabled, setEnabled] = useState(
     () => new Set(LAYERS.filter((l) => l.defaultOn).map((l) => l.id)),
   )
+  const { state: dataById, refresh } = useLiveData(enabled)
+
   const [detail, setDetail] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
 
