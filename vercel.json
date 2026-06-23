@@ -1,0 +1,9 @@
+{
+    "buildCommand": "npm run build",
+    "rewrites": [
+        {
+            "source": "/((?!api|assets|favicon|.*\\..*).*)",
+            "destination": "/index.html"
+        }
+    ]
+}
